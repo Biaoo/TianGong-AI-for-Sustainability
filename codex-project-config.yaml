@@ -1,0 +1,163 @@
+# ------------------------------------------------------------------------------
+# Example configuration for the TianGong AI for Sustainability repository.
+# Copy this file to the project root as `codex-project-config.yaml` and
+# replace placeholder values with study-specific details before running Codex.
+# ------------------------------------------------------------------------------
+
+version: 1
+
+project:
+  name: "TianGong-AI-for-Sustainability"
+  description: "Deterministic research workflows for sustainability studies."
+
+default_prompt:
+  template_file: specs/prompts/default.md
+  variables:
+    - name: study_id
+      type: text
+      required: true
+      description: "Study identifier referenced in workspace bootstrap commands."
+      placeholder: "sdg-2024-05"
+    - name: auto_execute_flag
+      type: text
+      required: true
+      description: "Set to true or false to mirror the workspace blueprint automation toggle."
+      placeholder: "true"
+    - name: source_ids
+      type: text
+      required: true
+      description: "Critical data source IDs to verify during readiness checks."
+      placeholder: "un_sdg_api,grid_intensity"
+    - name: missing_items_and_remediation
+      type: text
+      required: false
+      description: "Outstanding tooling or credential gaps plus planned remediation."
+      placeholder: "None"
+    - name: primary_objective
+      type: text
+      required: true
+      description: "Study objective captured in the Stage 2 context."
+      placeholder: "Assess renewable integration strategies for coastal cities."
+    - name: subtopics
+      type: text
+      required: false
+      description: "Key subtopics or scope delimiters for the study."
+      placeholder: "Grid modernization, storage, demand response"
+    - name: geography_focus
+      type: text
+      required: false
+      description: "Geographic or sector focus notes."
+      placeholder: "Southeast Asia, coastal provinces"
+    - name: policy_constraints
+      type: text
+      required: false
+      description: "Policy, budget, or timing constraints affecting the work."
+      placeholder: "Budget limited to FY2025 pilots."
+    - name: expected_deliverables
+      type: text
+      required: true
+      description: "Planned outputs (datasets, reports, visuals)."
+      placeholder: "Comparative metrics table, synthesis report, chart bundle."
+    - name: stage1_map_input
+      type: text
+      required: false
+      description: "Input text or file path for SDG mapping commands."
+      placeholder: "docs/study_brief.md"
+    - name: stage1_find_code_keywords
+      type: text
+      required: false
+      description: "Keyword string for repository discovery."
+      placeholder: "renewable energy microgrids"
+    - name: stage1_find_papers_query
+      type: text
+      required: false
+      description: "Literature search query used in Stage 1 acquisition."
+      placeholder: "renewable microgrid deployment coastal resilience"
+    - name: stage1_grid_id
+      type: text
+      required: false
+      description: "Grid intensity location identifier when carbon metrics are needed."
+      placeholder: "uk_grid:SEO"
+    - name: stage3_question
+      type: text
+      required: true
+      description: "Primary synthesis question for deterministic evidence consolidation."
+      placeholder: "What grid modernization strategies accelerate coastal resilience?"
+    - name: deterministic_command_queue
+      type: text
+      required: true
+      description: "Ordered CLI commands executed during the study."
+      placeholder: |
+        1. uv run tiangong-research sources verify un_sdg_api — confirm SDG taxonomy access.
+        2. uv run tiangong-research research map-sdg docs/study_brief.md --json.
+        3. uv run tiangong-research research find-code "renewable microgrids" --limit 5 --json.
+    - name: report_formats
+      type: text
+      required: true
+      description: "Report output formats expected from the study."
+      placeholder: "Markdown, JSON"
+    - name: observability_tags
+      type: text
+      required: false
+      description: "Tracing or observability tags applied to study artefacts."
+      placeholder: "sdg7, coastal-resilience"
+    - name: cache_path
+      type: text
+      required: true
+      description: "Cache directory for deterministic outputs referenced in the prompt."
+      placeholder: ".cache/tiangong/sdg-2024-05"
+    - name: traceability_output_path
+      type: text
+      required: true
+      description: "Location that aggregates the evidence referenced in reporting."
+      placeholder: ".cache/tiangong/sdg-2024-05/acquisition"
+    - name: dry_run_mode_flag
+      type: text
+      required: false
+      description: "Set to true when running rehearsal workflows without persistence."
+      placeholder: "false"
+    - name: deep_research_iteration_limit
+      type: text
+      required: false
+      description: "Iteration cap when enabling optional deep research workflows."
+      placeholder: "2"
+    - name: deep_research_budget
+      type: text
+      required: false
+      description: "Token or cost budget allocated to deep research passes."
+      placeholder: "$20 or 150k tokens"
+    - name: chart_description
+      type: text
+      required: false
+      description: "AntV chart specification notes and destination paths."
+      placeholder: "Compare grid intensity trends by coastal region → charts/grid-intensity.json"
+    - name: custom_template_overrides
+      type: text
+      required: false
+      description: "Additional prompt packs or variable overrides applied in the study."
+      placeholder: "None"
+    - name: remediation_plan
+      type: text
+      required: false
+      description: "Fallback steps when deterministic tooling is unavailable."
+      placeholder: "Escalate to manual data collection if SDG API is offline."
+    - name: stakeholder_actions
+      type: text
+      required: false
+      description: "Follow-up actions or escalation contacts."
+      placeholder: "Notify sustainability lead for study approval and data releases."
+
+environment:
+  variables:
+    - name: OPENAI_API_KEY
+      type: secret
+      required: true
+      description: "LLM access token required by Codex and the TianGong CLI."
+    - name: GRID_INTENSITY_CLI
+      type: string
+      required: false
+      description: "Optional override pointing to a custom grid-intensity executable."
+    - name: ANTV_CHART_SERVER_URL
+      type: string
+      required: false
+      description: "Endpoint for the AntV MCP chart server when chart workflows are enabled."
