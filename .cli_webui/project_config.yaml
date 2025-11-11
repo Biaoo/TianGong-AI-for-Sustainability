@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
 # Example configuration for the TianGong AI for Sustainability repository.
-# Copy this file to the project root as `codex-project-config.yaml` and
+# Copy this file to the project root as `project_config.yaml` and
 # replace placeholder values with study-specific details before running Codex.
 # ------------------------------------------------------------------------------
 
@@ -10,8 +10,10 @@ project:
   name: "TianGong-AI-for-Sustainability"
   description: "Deterministic research workflows for sustainability studies."
 
+install_script: install_ubuntu.sh
+
 default_prompt:
-  template_file: specs/prompts/init_prompt.md
+  template_file: init_prompt.md
   variables:
     - name: primary_objective
       type: text
