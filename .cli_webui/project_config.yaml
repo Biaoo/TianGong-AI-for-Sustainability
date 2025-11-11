@@ -10,10 +10,10 @@ project:
   name: "TianGong-AI-for-Sustainability"
   description: "Deterministic research workflows for sustainability studies."
 
-install_script: .cli_webui/install_ubuntu.sh
+install_script: install_ubuntu.sh
 
 default_prompt:
-  template_file: .cli_webui/init_prompt.md
+  template_file: init_prompt.md
   variables:
     - name: primary_objective
       type: text
