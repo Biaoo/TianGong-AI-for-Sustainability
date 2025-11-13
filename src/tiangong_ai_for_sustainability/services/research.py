@@ -15,11 +15,11 @@ from logging import LoggerAdapter
 from typing import Any, Dict, Mapping, Optional, Sequence
 
 from ..adapters import AdapterError, ChartMCPAdapter, DataSourceAdapter, VerificationResult
-from ..adapters.api import GitHubTopicsClient, OpenAlexClient, OSDGClient, SemanticScholarClient, UNSDGClient
+from ..adapters.api import ArxivClient, CrossrefClient, GitHubTopicsClient, KaggleClient, OpenAlexClient, OSDGClient, SemanticScholarClient, UNSDGClient
 from ..adapters.environment import GridIntensityCLIAdapter
 from ..core import DataSourceDescriptor, DataSourceRegistry, DataSourceStatus, ExecutionContext, get_logger
-from ..core.mcp import MCPServerConfig, load_mcp_server_configs
 from ..core.mcp_client import MCPToolClient
+from ..core.mcp_config import MCPServerConfig, load_mcp_server_configs
 from ..core.prompts import LoadedPromptTemplate, PromptTemplateError, load_prompt_template
 
 
@@ -33,8 +33,11 @@ class ResearchServices:
     _un_sdg_client: Optional[UNSDGClient] = field(default=None, init=False, repr=False)
     _semantic_scholar_client: Optional[SemanticScholarClient] = field(default=None, init=False, repr=False)
     _openalex_client: Optional[OpenAlexClient] = field(default=None, init=False, repr=False)
+    _arxiv_client: Optional[ArxivClient] = field(default=None, init=False, repr=False)
     _github_topics_client: Optional[GitHubTopicsClient] = field(default=None, init=False, repr=False)
     _osdg_client: Optional[OSDGClient] = field(default=None, init=False, repr=False)
+    _crossref_client: Optional[CrossrefClient] = field(default=None, init=False, repr=False)
+    _kaggle_client: Optional[KaggleClient] = field(default=None, init=False, repr=False)
     _sdg_goal_cache: Optional[Dict[str, Dict[str, Any]]] = field(default=None, init=False, repr=False)
     _mcp_configs: Optional[Dict[str, MCPServerConfig]] = field(default=None, init=False, repr=False)
     _mcp_client: Optional[MCPToolClient] = field(default=None, init=False, repr=False)
@@ -155,6 +158,12 @@ class ResearchServices:
             self._openalex_client = OpenAlexClient(mailto=mailto)
         return self._openalex_client
 
+    def arxiv_client(self) -> ArxivClient:
+        self._require_source_enabled("arxiv")
+        if self._arxiv_client is None:
+            self._arxiv_client = ArxivClient()
+        return self._arxiv_client
+
     def github_topics_client(self) -> GitHubTopicsClient:
         self._require_source_enabled("github_topics")
         if self._github_topics_client is None:
@@ -168,6 +177,23 @@ class ResearchServices:
             api_token = self._get_secret("osdg", "api_token")
             self._osdg_client = OSDGClient(api_token=api_token)
         return self._osdg_client
+
+    def crossref_client(self) -> CrossrefClient:
+        self._require_source_enabled("crossref")
+        if self._crossref_client is None:
+            mailto = self._get_secret("crossref", "mailto") or os.getenv("TIANGONG_CROSSREF_MAILTO")
+            if not mailto:
+                raise AdapterError("Crossref requires a contact email. Set crossref.mailto in .secrets or TIANGONG_CROSSREF_MAILTO.")
+            self._crossref_client = CrossrefClient(mailto=mailto)
+        return self._crossref_client
+
+    def kaggle_client(self) -> KaggleClient:
+        self._require_source_enabled("kaggle")
+        if self._kaggle_client is None:
+            username = self._get_secret("kaggle", "username") or os.getenv("KAGGLE_USERNAME")
+            key = self._get_secret("kaggle", "key") or os.getenv("KAGGLE_KEY")
+            self._kaggle_client = KaggleClient(username=username, key=key)
+        return self._kaggle_client
 
     def sdg_goal_map(self) -> Dict[str, Dict[str, Any]]:
         if self._sdg_goal_cache is None:

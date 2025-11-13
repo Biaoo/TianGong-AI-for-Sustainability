@@ -3,14 +3,23 @@
 此文档提供与 `specs/prompts/default.md` 对应的中文说明，方便人工理解与编辑。请勿将本文件直接发送给 Codex，所有交付给 AI 的提示应使用英文版本 `default.md`。
 
 ## 使用说明
-- 复制下方 Markdown 骨架，发送前将占位符（`<…>`）替换为实际内容。
-- 先确认环境和凭据（数据源访问、AntV 图表服务、`grid-intensity`、缓存路径）已就绪。
+- 在编写提示前初始化或复用研究工作区：`uv run python scripts/ops/init_study_workspace.py --study-id <STUDY_ID>`。该命令会在 `.cache/tiangong/<STUDY_ID>/` 下生成目录与可编辑的 `docs/runbook.md`、`docs/study_brief.md`。更多工作区操作规范请参阅 `WORKSPACES.md` / `WORKSPACES_CN.md`。
+- 在生成的 runbook / 蓝图中填入本次研究的命令队列、缓存路径，以及是否希望 Codex 在蓝图确认后自动继续（`auto_execute: true|false`）。
+- 复制下方 Markdown 骨架，发送前将占位符（`<…>`）替换为实际内容，可引用已编辑的 runbook 信息。
+- 定制后的提示与中间文档应保存在研究工作区（例如 `.cache/tiangong/<STUDY_ID>/docs/`）。`user_prompts/_markdown_prompt.md` 与 `_inline_prompt.txt` 仅作为模板，请勿覆盖为具体课题内容。
+- 先确认环境和凭据（数据源访问、AntV 图表服务、`grid-intensity` CLI 可通过 `uv run uk-grid-intensity --help` 访问、缓存路径）已就绪。
 - 按执行顺序列出 CLI 命令。除非明确授权回退，否则 Codex 必须通过 `uv run tiangong-research …` 完成操作。
 - 原始输出建议保存到 `.cache/tiangong/<STUDY_ID>/` 或声明的路径，便于复现。
 
 ## 提示骨架
 ```markdown
 # 天工调研计划 — 默认模板
+
+## 0. 工作区引导（发送提示前完成）
+- Study ID：`<STUDY_ID>`
+- 初始化命令：`uv run python scripts/ops/init_study_workspace.py --study-id <STUDY_ID>`（若已存在可跳过）
+- 蓝图文件：`.cache/tiangong/<STUDY_ID>/docs/runbook.md`、`.cache/tiangong/<STUDY_ID>/docs/study_brief.md`
+- 蓝图确认后自动继续：`<true|false>`（为 `true` 时 Codex 将直接继续；为 `false` 时需人工确认）
 
 ## 1. 环境与准备
 - [ ] 运行 `uv run tiangong-research sources list` 确认数据源。
@@ -29,6 +38,7 @@
 ### 阶段 0 —— 规范对齐
 - 目的：确保与 `AGENTS.md`、`tasks/blueprint.yaml` 一致。
 - CLI 命令：`uv run tiangong-research sources list`、`uv run tiangong-research sources verify <id>`
+- 自动执行守卫：确认蓝图中的 `<true|false>` 设置，并明确 Codex 是否应当在此阶段后继续执行。
 - 输出：就绪情况、受阻数据源、升级事项。
 
 ### 阶段 1 —— 确定性采集
@@ -37,7 +47,7 @@
   - `uv run tiangong-research research map-sdg <PATH_OR_TEXT>`
   - `uv run tiangong-research research find-code "<KEYWORDS>"`
   - `uv run tiangong-research research find-papers "<QUERY>"`
-  - `uv run --group 3rd tiangong-research research get-carbon-intensity <GRID_ID>`
+  - `uv run tiangong-research research get-carbon-intensity <GRID_ID>`（CLI 随项目依赖提供，可用 `uv run uk-grid-intensity --help` 验证）
   - `uv run tiangong-research research query-kg --query <PATH_OR_QUERY>`（功能上线后使用）
 - 输出：将 JSON/Markdown 存于 `.cache/tiangong/<STUDY_ID>/acquisition`。
 
@@ -101,7 +111,7 @@
 
 ## 可选扩展与降级策略
 - `--deep-research` 仅在确定性步骤完成后启用，并明确预算与限制。
-- 如缺少可选工具（AntV 图表、`grid-intensity`、PDF 工具链），需给出安装指引或说明降级行为。
+- 如缺少可选工具（AntV 图表、`grid-intensity` CLI、PDF 工具链），需给出安装指引或说明降级行为。
 
 ## CLI 快速参考
 | 命令 | 用途 | 常用参数 / 说明 |
@@ -109,7 +119,7 @@
 | `uv run tiangong-research research map-sdg <PATH_OR_TEXT>` | 将文本映射至 SDG。 | `--json`、可选 `--prompt-language en`、`--prompt-variable 键=值` |
 | `uv run tiangong-research research find-code "<KEYWORDS>"` | 搜索代码实现案例。 | `--limit <N>`、`--json`、`--topics-cache <PATH>` |
 | `uv run tiangong-research research find-papers "<QUERY>"` | 聚合学术文献。 | `--limit <N>`、`--openalex/--no-openalex`、`--citation-graph`、`--arxiv` |
-| `uv run --group 3rd tiangong-research research get-carbon-intensity <GRID_ID>` | 获取碳强度信息。 | `--json`、`--as-of <TIMESTAMP>`、`--timezone <TZ>` |
+| `uv run tiangong-research research get-carbon-intensity <GRID_ID>` | 获取碳强度信息（CLI 随项目依赖提供，可用 `uv run uk-grid-intensity --help` 验证）。 | `--json`、`--as-of <TIMESTAMP>`、`--timezone <TZ>`，如使用自定义命令可设置 `GRID_INTENSITY_CLI`。 |
 | `uv run tiangong-research research query-kg --query <PATH_OR_QUERY>` | 规划中的 SPARQL/MCP 查询。 | `--json`，功能开放后可补充 Header。 |
 | `uv run tiangong-research research synthesize "<QUESTION>"` | 综合确定性证据。 | `--prompt-template default`、可选 `--prompt-language en`、可重复 `-P 键=值`、可选 `--deep-research`。 |
 | `uv run tiangong-research research visuals verify` | 检查 AntV 图表服务。 | 可配合 `npx -y @antv/mcp-server-chart --transport streamable --version` 排查。 |

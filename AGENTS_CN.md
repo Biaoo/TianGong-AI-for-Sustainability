@@ -21,8 +21,15 @@
 | 提示模板（AI） | `specs/prompts/default.md` | 仅供 Codex 使用的英文提示模版。 |
 | 提示模板（人工中文） | `specs/prompts/default_CN.md` | 面向人类操作员的中文翻译，禁止直接发送给 Codex。 |
 | 工作流脚本 | `tiangong_ai_for_sustainability/workflows/` | 自动化多源研究的 Python 工作流（如 `run_simple_workflow`）。 |
+| 课题工作区指南 | `WORKSPACES_CN.md` | 在 `.cache/tiangong/<STUDY_ID>/` 中执行研究工作时的流程与规范。 |
 
 > **更新要求**：凡涉及上述文档内容变更，必须同时更新对应的中文与英文版本，确保双语文档一致。
+
+### 文档分工
+
+- **AGENTS_CN.md / AGENTS.md**：仓库层面的架构、模块边界、开发规范。
+- **WORKSPACES_CN.md / WORKSPACES.md**：课题工作区的执行规则与产物管理。
+- **specs/prompts/default*.md**：提交给 Codex 的调研提示骨架，绑定 runbook 与工作区 artefacts。
 
 ## 操作原则
 
@@ -30,9 +37,10 @@
 2. **确定性优先** — 数据采集使用规则化适配器；仅在综合分析阶段引入 LLM 推理。
 3. **CLI 优先** — 优先调用 `uv run tiangong-research …` 子命令；仅在确认 CLI 尚未覆盖能力时，记录原因并说明拟访问的 Python 模块，同时创建待办以补全 CLI。
 4. **可回滚** — 未获授权不得执行破坏性 Git 命令（如 `git reset --hard`）。
-5. **双语维护** — 对 `README*.md` 或 `AGENTS*.md`（包括架构蓝图章节）的任何修改，必须同步更新英文与中文版本。
+5. **双语维护** — 对 `README*.md`、`AGENTS*.md`、`WORKSPACES*.md`、`SETUP_GUIDE*.md`（包括架构蓝图章节）的任何修改，必须同步更新英文与中文版本。
 6. **工具依赖** — 涉及图表的工作需确认 Node.js 与 AntV MCP 图表服务器已安装并可访问。
 7. **提示模版** — 所有包含 LLM 的工作流（如 Deep Research、`research synthesize`）需通过别名加载 `specs/prompts/default.md`（支持 `default`、`default-en` 等别名）；模版保持英文内容以避免多语言提示漂移。`specs/prompts/default_CN.md` 仅供人工参考，禁止直接发送给 Codex。模版占位符使用 `{{variable}}` 语法，并可通过 CLI 参数（`--prompt-template`、`--prompt-language`、`--prompt-variable`）填充，确保执行可复现。
+8. **课题工作区** — 在 `.cache/tiangong/<STUDY_ID>/` 内执行研究工作时，请遵循 `WORKSPACES_CN.md` 的操作规范；课题脚本、笔记和中间产物必须保存在工作区内，不得提交到仓库。
 
 ## 架构蓝图
 
@@ -60,12 +68,13 @@
 
 | 优先级 | 示例 | 状态 | 说明 |
 |--------|------|------|------|
-| **P0** | `tiangong_ai_remote` MCP 知识库 | 已实现 | 可持续性研究的首选语料；需提供完整上下文以获取高质量检索结果。 |
-| **P1** | UN SDG API、Semantic Scholar、GitHub Topics、Wikidata、grid-intensity CLI、`tiangong_lca_remote` MCP | 已实现 | 构成本体与通用检索基础，同时按需提供细粒度 LCA 数据。 |
-| **P1（批量）** | arXiv S3 / Kaggle | 规划中 | 待解决存储成本后引入全文索引。 |
-| **P2** | Scopus、Web of Science、WattTime（通过 grid-intensity）、AntV MCP 图表服务器、Tavily Web MCP、OpenAI Deep Research | 视凭据/环境启用 | 需提供密钥、运行时依赖（如 Node.js）或足够的 API 配额。 |
-| **P3** | GRI taxonomy、GHG 工作簿、Open Sustainable Tech CSV、生命周期评估清单（如 openLCA 数据集） | 持续接入 | 通过统一的文件解析框架处理。 |
-| **P4** | Google Scholar、ACM Digital Library | 禁用 | 强制使用替代方案（如 Semantic Scholar、Crossref）。 |
+| **P0** | IPCC DDC；IPBES；世界银行（SDGs/WGI/ESG）；ILOSTAT；IMF 气候仪表板；透明国际 CPI；UN SDG API；Wikidata | 部分上线 | 气候、生物多样性、治理等权威宏观基线，作为确定性推理的“公理层”。 |
+| **P1** | Google Earth Engine；ESA Copernicus；NASA Earthdata；grid-intensity CLI | 部分上线 | 遥感与观测验证层，用于佐证披露信息。已实现 Copernicus Dataspace 与 NASA Earthdata 元数据适配器，并提供 grid-intensity 与 Earth Engine CLI 可用性检测；需要凭据的完整流程仍在路线图中。 |
+| **P2** | OpenAlex；Dimensions.ai；Lens.org；Semantic Scholar；Crossref；arXiv；GitHub Topics；Kaggle API；OSDG API | 已实现 | 文献计量与分类管线，支撑研究发现与代码检索。Dimensions.ai 与 Lens.org 已提供识别 API 凭据的验证适配器。 |
+| **P3** | CDP；LSEG Refinitiv；MSCI；Sustainalytics；S&P Global Sustainable1；ISS ESG | 部分上线 | 需要许可的企业 ESG 绩效数据，当前已提供识别 API Key 的验证适配器并给出接入指引，完整数据摄取将在凭证落地后开启。 |
+| **P4** | GRI Taxonomy（XBRL）；GHG 工作簿；Open Supply Hub；`tiangong_lca_remote` MCP；Tavily Web MCP | 持续接入 | 回溯企业披露与供应链节点，用于反哺 P3 分析结果。Open Supply Hub 已提供元数据适配器，并支持可选 API Token。 |
+| **P5** | ACM Digital Library；Scopus；Web of Science；AntV MCP 图表服务器；OpenAI Deep Research | 视凭据启用 | 高门槛/可选服务，满足依赖后用于专家级综合与可视化。现已新增 API Key 检测，便于在获取许可后快速启用连接。 |
+| **P_INT** | `tiangong_ai_remote` MCP；`dify_knowledge_base_mcp` | 已实现 | 项目专属的 RAG 上下文层，为自动化提供最终背景。 |
 
 #### 适配器规则
 
@@ -73,8 +82,9 @@
 2. HTTP 适配器使用 `httpx` + Tenacity 重试，失败时抛出 `AdapterError`。
 3. CLI/MCP 适配器在缺失依赖或访问权限时，应给出明确安装/开通指引（如 `grid-intensity`、`mcp-server-chart --transport streamable`、MCP 端点或密钥）。
 4. 缓存与持久化逻辑保留在服务层，保证适配器无状态。
+5. Kaggle 数据集适配器依赖官方 SDK（1.7.4.5 版）；若缺少 `KAGGLE_USERNAME`/`KAGGLE_KEY` 或 `~/.kaggle/kaggle.json`，需输出明确的凭证配置提示。
 
-> **MCP 使用提示**：`tiangong_ai_remote` MCP 覆盖最权威的可持续性文献语料（约 7000 万 chunks、700 亿 token），检索时务必提供信息完备的查询上下文，以充分发挥混合检索效果。所有 `Search_*` 工具（包括 `Search_Sci_Tool`）都会返回 JSON 字符串，需先通过 `json.loads` 解析，建议将 `topK` 控制在 50 以内以避免响应过大。补充检索（如 Semantic Scholar）需注意 429 节流；出现限频时可降速或改用 `OpenAlex` 数据。`tiangong_lca_remote` MCP 专注生命周期评估数据，适合微观 LCA 案例或细粒度排放比对，在宏观文献扫描时可优先使用 `tiangong_ai_remote` 及其它 P1 数据源。需要覆盖更广泛的站点或新闻源时，可启用 `tavily_web_mcp`（通过 `Authorization: Bearer <API_KEY>` 认证）。调用 TianGong 系列检索工具时，请显式设置 `extK` 参数以控制返回的邻近 chunk 数量（默认 `extK=2`），仅在确实需要更多局部上下文时再上调。同时将 `openai_deep_research` 视为高层综合分析的数据源，在确定性数据采集完成后再触发；请提前配置 OpenAI API Key 与 deep_research 模型。
+> **MCP 使用提示**：`tiangong_ai_remote` 与 `dify_knowledge_base_mcp` 属于 **P_INT** RAG 上下文层，查询时需提供完整的任务意图，以便混合检索返回高价值片段。所有 `Search_*` 工具（包括 `Search_Sci_Tool`）都会返回 JSON 字符串，需先通过 `json.loads` 解析，并将 `topK` 控制在 50 以内以避免响应过大。补充检索（如 Semantic Scholar）需注意 429 节流；出现限频时可降速或改用 `OpenAlex` 数据。`tiangong_lca_remote` MCP（P4）聚焦生命周期评估，适用于微观 LCA 案例或精细排放比对；宏观文献扫描场景应优先使用 P0/P2 数据源。若需涵盖更广泛的网站或新闻，可启用 `tavily_web_mcp`（P4，需要 `Authorization: Bearer <API_KEY>`）。`openai_deep_research`（P5）用于确定性证据收集后的综合分析，请提前配置 OpenAI API Key 与 deep_research 模型。
 
 ### 本体与数据模型
 
@@ -114,6 +124,10 @@
 4. **前置依赖提示**：缺少外部工具或凭据时（如 OSDG 令牌、`grid-intensity` CLI、Node.js + MCP 图表服务器）需输出明确指导，不得默默失败。
 5. **提示模版配置**：当命令未显式提供指令时，应通过 `ResearchServices.load_prompt_template` 加载 `specs/prompts/default.md`。模版支持 `{{placeholder}}` 占位符替换（来自 `ExecutionOptions.prompt_variables`），CLI 可通过 `--prompt-template`、`--prompt-language`、`--prompt-variable` 设定参数，后续 `research synthesize` 亦复用相同机制。中文文件 `specs/prompts/default_CN.md` 仅供人工阅读，请勿传递给 Codex。
 6. **工作流 Profile**：引用扫描与深度报告工作流均采用“模版 + Profile”架构。新增领域时只需在 `workflows/profiles.py` 注册 `CitationProfile`/`DeepResearchProfile`，然后通过 `--profile <slug>` 复用现有 CLI。 
+7. **课题工作区规范**：课题专用的脚本、笔记、临时数据集和草稿必须存放在 `.cache/tiangong/<STUDY_ID>/` 及其下属目录（`acquisition/`、`processed/`、`docs/`、`models/`、`figures/`、`scripts/`、`logs/`）。仓库层面仅接受通用能力（CLI、services、workflows），不得将特定课题的代码或数据提交到仓库。
+8. **Runbook 真源**：所有命令队列、产出路径与重试策略须写入 `<study>/docs/runbook.md`。执行时严格按照 runbook 顺序推进，临时操作需先更新 runbook 再执行。
+9. **流程与溯源**：在 `<study>/processed/` 记录流水线清单、指标表和参考索引，deliverable 中必须引用这些确定性产物，确保可复现。
+10. **异常记录**：遭遇速率限制、凭据缺失或降级处理时，先在 `<study>/logs/exceptions.md` 记录情况，并在 `docs/gaps.md` 总结，再决定是否重试或切换数据源，避免在脚本中写死一次性逻辑。
 
 ### 测试策略
 
@@ -134,6 +148,11 @@
 - 已完成注册表、执行上下文与数据源验证命令。
 - Phase 1 命令 `research map-sdg`、`research find-code`、`research get-carbon-intensity` 已上线。
 - Phase 1 命令 `research find-papers` 已可用，可汇总 Semantic Scholar 结果并按需启用 OpenAlex/Citation Graph 输出。
+- P1 遥感数据现已覆盖 Copernicus Dataspace、NASA Earthdata 元数据适配器，并加入 Earth Engine CLI 可用性检测，便于提示安装与认证步骤。
+- 针对 Dimensions.ai、Lens.org 的订阅型文献服务新增适配器，可验证 API Key 配置并执行轻量级示例查询。
+- P3 企业 ESG 数据源已支持凭证检测，持证后即可按路线图推进批量摄取。
+- P4 供应链领域新增 Open Supply Hub 适配器，兼容可选 API Token，用于设施元数据获取。
+- P5 高门槛文献服务（ACM、Scopus、Web of Science）已支持凭证探测，待授权后即可扩展接入。
 - `uv run pytest` 覆盖核心模块与 CLI 操作。
 - Phase 3 的 `research synthesize` 已上线，并支持提示模版驱动的 LLM 综合分析。
 - 下一步重点：摄取 SDG/GRI 本体数据、完善其余 Phase 1 命令，并扩展引文/图谱工具。
@@ -166,6 +185,7 @@
    ```bash
    uv run tiangong-research sources list
    uv run tiangong-research sources verify <source_id>
+   uv run tiangong-research sources verify all
    uv run tiangong-research sources audit [--json] [--show-blocked] [--no-fail-on-error]
    ```
    - `--json`：以 JSON 形式输出巡检汇总，便于 CI 或后续解析。
@@ -226,6 +246,7 @@
 5. 执行可视化任务前，需启动 `npx -y @antv/mcp-server-chart --transport streamable` 并在 `.secrets` 的 `[chart_mcp] endpoint` 或环境变量 `TIANGONG_CHART_MCP_ENDPOINT` 中记录端点。
 6. 扩展自动化流程时，可复用或扩展 `workflows/simple.py`，并同步更新测试用例。
 7. 为新增的服务与工作流接入集中式日志工具，并在日志行为影响功能时补充回归测试。
+8. 通用脚本统一放在 `scripts/ops/`、`scripts/integrations/`、`scripts/tooling/`、`scripts/examples/` 下；课题专属脚本应保存在 `.cache/tiangong/<STUDY_ID>/scripts/`，详细要求见 `WORKSPACES_CN.md`。
 
 ## 验证清单
 

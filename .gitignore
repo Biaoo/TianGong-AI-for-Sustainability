@@ -164,3 +164,14 @@ uv.lock
 package-lock.json
 
 /.tiangong
+
+# User prompts: ignore everything except example.md
+/user_prompts/*
+!/user_prompts/example.md
+
+inline_prompt.txt
+
+.env
+node_modules
+package-lock.json
+local_mcp_logs/

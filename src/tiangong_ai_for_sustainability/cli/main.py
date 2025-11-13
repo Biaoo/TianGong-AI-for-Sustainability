@@ -12,7 +12,7 @@ import json
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import typer
 
@@ -36,14 +36,27 @@ from ..workflows.profiles import (
 )
 from .adapters import resolve_adapter
 
-app = typer.Typer(no_args_is_help=True, add_completion=False, help="TianGong sustainability research CLI.")
-sources_app = typer.Typer(help="Inspect and validate external data source integrations.")
+app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help=(
+        "Deterministic sustainability research CLI for TianGong.\n\n"
+        "Command groups:\n"
+        "- sources: catalogue, audit, and verify data integrations.\n"
+        "- research: run SDG/GRI mapping, code and paper discovery, synthesis, and tooling checks.\n"
+        "- research workflow: execute curated multi-step studies.\n"
+        "- research visuals: confirm AntV MCP chart server availability."
+    ),
+)
+sources_app = typer.Typer(help=("Inspect and validate external data source integrations. Includes list, describe, audit, and" " per-source verification commands."))
 app.add_typer(sources_app, name="sources")
-research_app = typer.Typer(help="Execute research workflows.")
+research_app = typer.Typer(
+    help=("Execute sustainability research commands such as SDG mapping, repository discovery, carbon" " intensity lookups, literature search, synthesis, and MCP tooling checks.")
+)
 app.add_typer(research_app, name="research")
-visuals_app = typer.Typer(help="Visualization tooling")
+visuals_app = typer.Typer(help="Visualization tooling, including AntV MCP chart server verification.")
 research_app.add_typer(visuals_app, name="visuals")
-workflow_app = typer.Typer(help="Predefined multi-step research workflows")
+workflow_app = typer.Typer(help="Predefined multi-step research workflows such as simple, citation-scan, and deep-report templates.")
 research_app.add_typer(workflow_app, name="workflow")
 
 _CURRENT_YEAR = datetime.now(UTC).year
@@ -163,6 +176,45 @@ def _parse_prompt_variables(values: Optional[List[str]]) -> Dict[str, str]:
             raise typer.BadParameter(f"Prompt variable '{entry}' is missing a key.")
         variables[key] = value
     return variables
+
+
+def _verify_descriptor(
+    descriptor: DataSourceDescriptor,
+    context: ExecutionContext,
+    services: ResearchServices,
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Run the same verification flow for both single-source and multi-source commands.
+    """
+
+    if descriptor.status == DataSourceStatus.BLOCKED:
+        return (
+            False,
+            f"Source '{descriptor.source_id}' is blocked: {descriptor.blocked_reason}",
+            {"reason": "blocked"},
+        )
+
+    if descriptor.requires_credentials and not context.is_enabled(descriptor.source_id):
+        return (
+            False,
+            f"Source '{descriptor.source_id}' requires credentials. Provide API keys in .secrets or enable explicitly.",
+            {"reason": "credentials-missing"},
+        )
+
+    adapter = resolve_adapter(descriptor.source_id, context)
+    try:
+        result = services.verify_source(descriptor.source_id, adapter)
+    except AdapterError as exc:
+        return (
+            False,
+            f"Verification failed: {exc}",
+            {"reason": "adapter-error"},
+        )
+
+    details: Optional[Dict[str, Any]] = None
+    if result.details is not None:
+        details = dict(result.details)
+    return result.success, result.message, details
 
 
 @app.callback(invoke_without_command=False)
@@ -403,34 +455,54 @@ def sources_verify(
 
     registry = _require_registry(ctx)
     context = _require_context(ctx)
+    services = ResearchServices(registry=registry, context=context)
+
+    if source_id.lower() == "all":
+        descriptors = list(registry.iter_enabled(allow_blocked=True))
+        if not descriptors:
+            typer.echo("No data sources available for verification.")
+            raise typer.Exit(code=0)
+
+        header = f"{'ID':<22} {'Result':<7} Message"
+        typer.echo(header)
+        typer.echo("-" * len(header))
+        failures = 0
+        passed_records: List[Tuple[str, str]] = []
+        failed_records: List[Tuple[str, str]] = []
+        for descriptor in descriptors:
+            success, message, details = _verify_descriptor(descriptor, context, services)
+            result_label = "pass" if success else "fail"
+            typer.echo(f"{descriptor.source_id:<22} {result_label:<7} {message}")
+            if details:
+                typer.echo(f"  Details: {json.dumps(details, ensure_ascii=False)}")
+            if not success:
+                failures += 1
+                failed_records.append((descriptor.source_id, message))
+            else:
+                passed_records.append((descriptor.source_id, message))
+
+        passed = len(descriptors) - failures
+        typer.echo()
+        typer.echo("Summary:")
+        passed_ids = ", ".join(source_id for source_id, _ in passed_records) or "None"
+        failed_ids = ", ".join(source_id for source_id, _ in failed_records) or "None"
+        typer.echo(f"- Passed ({len(passed_records)}): {passed_ids}")
+        typer.echo(f"- Failed ({len(failed_records)}): {failed_ids}")
+        typer.echo(f"Verification complete: {len(descriptors)} source(s), {passed} passed, {failures} failed.")
+        if failures:
+            raise typer.Exit(code=1)
+        return
+
     descriptor = registry.get(source_id)
     if not descriptor:
         typer.echo(f"Data source '{source_id}' is not registered.", err=True)
         raise typer.Exit(code=1)
 
-    if descriptor.status == DataSourceStatus.BLOCKED:
-        typer.echo(f"Source '{source_id}' is blocked: {descriptor.blocked_reason}")
-        raise typer.Exit(code=1)
-
-    if descriptor.requires_credentials and source_id not in context.enabled_sources:
-        typer.echo(
-            f"Source '{source_id}' requires credentials. Provide API keys in .secrets or enable explicitly.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-
-    services = ResearchServices(registry=registry, context=context)
-    adapter = resolve_adapter(source_id, context)
-    try:
-        result = services.verify_source(source_id, adapter)
-    except AdapterError as exc:
-        typer.echo(f"Verification failed: {exc}", err=True)
-        raise typer.Exit(code=1)
-
-    typer.echo(result.message)
-    if result.details:
-        typer.echo(f"Details: {json.dumps(result.details, ensure_ascii=False)}")
-    if not result.success:
+    success, message, details = _verify_descriptor(descriptor, context, services)
+    typer.echo(message)
+    if details:
+        typer.echo(f"Details: {json.dumps(details, ensure_ascii=False)}")
+    if not success:
         raise typer.Exit(code=1)
 
 
@@ -991,7 +1063,11 @@ def research_find_papers(
     query: str = typer.Argument(..., help="Search query or keyword."),
     limit: int = typer.Option(10, "--limit", "-n", min=1, max=50, help="Maximum number of papers per source."),
     include_openalex: bool = typer.Option(True, "--openalex/--no-openalex", help="Toggle OpenAlex enrichment."),
-    include_arxiv: bool = typer.Option(False, "--arxiv/--no-arxiv", help="Toggle local arXiv dump enrichment (TIANGONG_ARXIV_INDEX or cache)."),
+    include_arxiv: bool = typer.Option(
+        False,
+        "--arxiv/--no-arxiv",
+        help="Toggle arXiv enrichment via arxiv.py (falls back to TIANGONG_ARXIV_INDEX or local cache).",
+    ),
     include_scopus: bool = typer.Option(False, "--scopus/--no-scopus", help="Toggle Scopus export enrichment (TIANGONG_SCOPUS_INDEX or cache)."),
     citation_graph: bool = typer.Option(False, "--citation-graph/--no-citation-graph", help="Emit citation edges derived from OpenAlex references."),
     output_json: bool = typer.Option(False, "--json", help="Emit aggregated results as JSON."),
@@ -1079,7 +1155,7 @@ def research_find_papers(
 
     if artifacts.arxiv:
         typer.echo("")
-        typer.echo(f"arXiv local results ({len(artifacts.arxiv)}):")
+        typer.echo(f"arXiv results ({len(artifacts.arxiv)}):")
         for record in artifacts.arxiv:
             title = record.get("title", "Untitled")
             year = record.get("year") or "?"
@@ -1087,6 +1163,9 @@ def research_find_papers(
             summary = record.get("summary")
             if summary:
                 typer.echo(f"  Summary: {summary[:160]}{'…' if len(summary) > 160 else ''}")
+            pdf_url = record.get("pdf_url")
+            if pdf_url:
+                typer.echo(f"  PDF: {pdf_url}")
 
     if artifacts.scopus:
         typer.echo("")

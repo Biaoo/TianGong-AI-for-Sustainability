@@ -21,8 +21,15 @@ AI operators must follow this document when working on the TianGong AI for Susta
 | Prompt Template (AI) | `specs/prompts/default.md` | English-only prompt delivered to Codex via CLI aliases. |
 | Prompt Template (CN, human) | `specs/prompts/default_CN.md` | Chinese translation for operators; do not send to Codex. |
 | Workflow scripts | `tiangong_ai_for_sustainability/workflows/` | Python workflows (e.g., `run_simple_workflow`) that automate multi-source studies. |
+| Study Workspace Guide | `WORKSPACES.md` | Procedures for managing `.cache/tiangong/<STUDY_ID>/` during research workflows. |
 
 Always consult these sources before planning or executing changes.
+
+### Document Roles
+
+- **AGENTS.md** – repository-level architecture, module boundaries, development workflow.
+- **WORKSPACES.md** – execution rules for study workspaces under `.cache/tiangong/<STUDY_ID>/`.
+- **specs/prompts/default.md** – operational briefing template sent to Codex; references the runbook and workspace artefacts.
 
 ## Operating Principles
 
@@ -30,9 +37,10 @@ Always consult these sources before planning or executing changes.
 2. **Deterministic Pipelines** — prefer rule-based adapters for data acquisition and reserve LLM prompting for synthesis as described in the spec.
 3. **CLI-First Commands** — invoke `uv run tiangong-research …` subcommands before reading or writing Python modules. Document any fallbacks when the CLI surface is incomplete and create backlog items to expose missing features.
 4. **Reversibility** — avoid destructive commands (`git reset --hard`, force pushes, etc.) unless explicitly authorised.
-5. **Bilingual Docs** — whenever `README*.md` or `AGENTS*.md` (including the Architecture Blueprint) are modified, update both English and Chinese versions in the same change set.
+5. **Bilingual Docs** — whenever `README*.md`, `AGENTS*.md`, `WORKSPACES*.md`, or `SETUP_GUIDE*.md` (including the Architecture Blueprint) are modified, update both English and Chinese versions under the same change set.
 6. **Tooling Dependencies** — chart-related tasks require Node.js and the AntV MCP chart server. Check for `node`/`npx` availability and surface installation guidance if missing.
 7. **Prompt Templates** — LLM-enabled workflows (Deep Research, future `research synthesize`) must load `specs/prompts/default.md` via the registered aliases (`default`, `default-en`, etc.). Keep AI-facing prompts in English only; `specs/prompts/default_CN.md` is for human use. Placeholders use `{{variable}}` syntax populated via CLI flags (`--prompt-template`, `--prompt-language`, `--prompt-variable`).
+8. **Study Workspaces** — when executing research workflows inside `.cache/tiangong/<STUDY_ID>/`, follow the operating rules in `WORKSPACES.md`. Keep topic-specific scripts in the workspace, not the repository.
 
 ## Architecture Blueprint
 
@@ -60,12 +68,13 @@ Always consult these sources before planning or executing changes.
 
 | Priority | Examples | Status | Notes |
 |----------|----------|--------|-------|
-| **P0** | `tiangong_ai_remote` MCP knowledge base | Implemented | Primary corpus for sustainability research; use as first-line retrieval with comprehensive query payloads. |
-| **P1** | UN SDG API, Semantic Scholar, GitHub Topics, Wikidata, grid-intensity CLI, `tiangong_lca_remote` MCP | Implemented | Provide core ontology, general retrieval, and micro-level LCA data when needed. |
-| **P1 (bulk)** | arXiv S3 / Kaggle dumps | Planned | Download + vector indexing once storage constraints are resolved. |
-| **P2** | Scopus, Web of Science, WattTime (via grid-intensity), AntV MCP chart server, Tavily Web MCP, OpenAI Deep Research | Conditional | Enable only when credentials, runtime dependencies (Node.js), or API quotas are available. |
-| **P3** | GRI taxonomy XLSX/XBRL, GHG protocol workbooks, Open Sustainable Tech CSV, life cycle assessment inventories (e.g., openLCA datasets) | Rolling | Parse via shared file ingestion layer. |
-| **P4** | Google Scholar, ACM Digital Library | Blocked | Enforce alternatives (Semantic Scholar, Crossref). |
+| **P0** | IPCC DDC; IPBES; World Bank (SDGs/WGI/ESG); ILOSTAT; IMF Climate Dashboard; Transparency International CPI; UN SDG API; Wikidata | Partial | Authoritative macro baselines (climate, biodiversity, governance) that ground deterministic reasoning. |
+| **P1** | Google Earth Engine; ESA Copernicus; NASA Earthdata; grid-intensity CLI | Partial | Remote sensing and observational validation used to corroborate disclosures. Metadata adapters now cover Copernicus Dataspace and NASA Earthdata, with CLI availability checks for grid-intensity and Earth Engine; full credentialled workflows remain on the roadmap. |
+| **P2** | OpenAlex; Dimensions.ai; Lens.org; Semantic Scholar; Crossref; arXiv; GitHub Topics; Kaggle API; OSDG API | Implemented | Bibliometrics and classification pipelines enabling research discovery and coding support. Adapters now include credential-aware verification for Dimensions.ai and Lens.org. |
+| **P3** | CDP; LSEG Refinitiv; MSCI; Sustainalytics; S&P Global Sustainable1; ISS ESG | Partial | Licensed corporate ESG performance data; credential-aware adapters now verify API key configuration and surface onboarding guidance while deeper ingestion remains pending. |
+| **P4** | GRI Taxonomy (XBRL); GHG Protocol Workbooks; Open Supply Hub; `tiangong_lca_remote` MCP; Tavily Web MCP | Rolling | Source primary disclosures and supply-chain facilities to backfill P3 results. Open Supply Hub now has a metadata adapter with optional API token support. |
+| **P5** | ACM Digital Library; Scopus; Web of Science; AntV MCP chart server; OpenAI Deep Research | Conditional | High-threshold or optional services used for expert synthesis and visualization once dependencies are met. Premium literature adapters now confirm API credential presence ahead of licensed ingestion. |
+| **P_INT** | `tiangong_ai_remote` MCP; `dify_knowledge_base_mcp` | Implemented | Project-specific RAG layer providing final contextualisation for automations. |
 
 #### Adapter Rules
 
@@ -73,8 +82,9 @@ Always consult these sources before planning or executing changes.
 2. HTTP adapters use `httpx` with Tenacity-backed retry logic; they must emit `AdapterError` on failures.
 3. CLI and MCP adapters should provide actionable install or access guidance when missing (e.g., `grid-intensity`, `mcp-server-chart --transport streamable`, MCP endpoints/API keys).
 4. Caching is deferred to services (e.g., storing SDG goals in DuckDB/Parquet) to keep adapters stateless.
+5. Kaggle dataset access relies on the official Kaggle SDK (1.7.4.5); surface clear credential requirements when `KAGGLE_USERNAME`/`KAGGLE_KEY` or `~/.kaggle/kaggle.json` are missing.
 
-> **MCP Usage Notes** — The `tiangong_ai_remote` MCP delivers the most authoritative sustainability literature coverage (≈70M chunks, 70B tokens). Always formulate queries with complete context so the hybrid retriever can yield high-quality passages. The `Search_*` tools (including `Search_Sci_Tool`) return a JSON string—decode it with `json.loads` before accessing fields and keep `topK` ≤ 50 to avoid oversized responses. Rate-limit follow-up enrichment calls (e.g., Semantic Scholar) or switch to `OpenAlex` when 429 throttling occurs. The `tiangong_lca_remote` MCP focuses on life-cycle assessment datasets; reserve it for micro-level LCA case studies or detailed footprint comparisons, and skip it for macro literature scans where `tiangong_ai_remote` and other P1 sources suffice. Use `tavily_web_mcp` when you need general web or news coverage that is outside the curated TianGong corpus, remembering that the Tavily server expects `Authorization: Bearer <API_KEY>`. When invoking TianGong search tools, set `extK` to control how many neighbouring chunks are returned (default `extK=2`, increase only when additional local context is required). Treat `openai_deep_research` as an analysis source triggered after deterministic evidence collection; ensure the OpenAI API key and the deep research model are configured before enabling it in workflows.
+> **MCP Usage Notes** — The `tiangong_ai_remote` and `dify_knowledge_base_mcp` sources form the **P_INT** RAG context layer; provide complete task intent so the hybrid retriever can return high-signal passages. The `Search_*` tools (including `Search_Sci_Tool`) return a JSON string—decode it with `json.loads` before accessing fields and keep `topK` ≤ 50 to avoid oversized responses. Rate-limit follow-up enrichment calls (e.g., Semantic Scholar) or switch to `OpenAlex` when 429 throttling occurs. The `tiangong_lca_remote` MCP (P4) focuses on life-cycle assessment datasets; reserve it for micro-level LCA case studies or detailed footprint comparisons, and skip it for macro literature scans where P0/P2 sources suffice. Use `tavily_web_mcp` (P4) when you need general web or news coverage outside the curated TianGong corpus, remembering that the Tavily server expects `Authorization: Bearer <API_KEY>`. Treat `openai_deep_research` (P5) as an analysis source triggered after deterministic evidence collection; ensure the OpenAI API key and the deep research model are configured before enabling it in workflows.
 
 ### Ontology & Data Models
 
@@ -114,6 +124,10 @@ Phase progression must honour dependencies encoded in `tasks/blueprint.yaml`.
 4. **Missing Dependencies** — if a command depends on external binaries or credentials (e.g., OSDG token, `grid-intensity` CLI, Node.js for the chart server), surface clear instructions rather than failing silently.
 5. **Prompt Templates** — default to `specs/prompts/default.md` when no explicit instructions are provided. The loader resolves aliases through `ResearchServices.load_prompt_template`, supports `{{placeholder}}` substitution from `ExecutionOptions.prompt_variables`, and is configured via CLI flags (`--prompt-template`, `--prompt-language`, `--prompt-variable`). The Chinese file `specs/prompts/default_CN.md` is for humans only and must not be routed to Codex.
 6. **Workflow Profiles** — reusable templates power both citation scans and deep-report orchestration. Add new domains by registering a `CitationProfile`/`DeepResearchProfile` (see `workflows/profiles.py`) and rely on `--profile <slug>` without forking CLI commands.
+7. **Study Workspace Discipline** — all study-specific artefacts (helper scripts, notebooks, interim datasets, drafts) must live inside `.cache/tiangong/<STUDY_ID>/` in their respective subdirectories (`acquisition/`, `processed/`, `docs/`, `models/`, `figures/`, `scripts/`, `logs/`). Do not add topic-specific code or data to the repository; promote general-purpose logic into `services`, `workflows`, or CLI modules only when it benefits every study.
+8. **Runbook as Source of Truth** — edit `<study>/docs/runbook.md` to queue commands, cache paths, and retry guidance. Codex must follow that queue; impromptu commands are discouraged unless first documented in the runbook.
+9. **Pipeline & Traceability** — store pipeline manifests, metric tables, and reference indexes under `<study>/processed/` and reference them from deliverables. Each conclusion must point back to deterministic artefacts within the study cache.
+10. **Exception Logging** — record rate limits, credential issues, or fallback usage in `<study>/logs/exceptions.md` (and summarise in `docs/gaps.md`) before rerunning commands. Prefer deterministic retries or alternative data sources instead of bespoke script logic.
 
 ### Testing Strategy
 
@@ -134,6 +148,11 @@ Phase progression must honour dependencies encoded in `tasks/blueprint.yaml`.
 - Registry, execution context, and verification commands are live.
 - Implemented Phase 1 commands: `research map-sdg`, `research find-code`, `research get-carbon-intensity`.
 - Phase 1 `research find-papers` now aggregates Semantic Scholar with optional OpenAlex enrichment and citation graph export.
+- Remote-sensing P1 coverage now includes Copernicus Dataspace and NASA Earthdata metadata adapters plus Earth Engine CLI availability checks to surface install/auth guidance.
+- Subscription bibliometrics (Dimensions.ai, Lens.org) expose adapters that validate API key configuration and perform lightweight sample queries.
+- P3 ESG providers expose credential presence checks so licensed datasets can be staged once contractual access is in place.
+- Supply-chain P4 scope now includes an Open Supply Hub adapter with optional API token support for facility metadata.
+- Premium P5 bibliometrics (ACM, Scopus, Web of Science) surface credential checks so licensed connectors can be enabled once access is provisioned.
 - Test suite (`uv run pytest`) covers core modules and CLI operations.
 - Next priorities: ingest SDG/GRI ontologies into structured storage, implement remaining Phase 1 commands, and broaden citation/graph tooling.
 - Phase 3 synthesis command now available with prompt template support.
@@ -166,6 +185,7 @@ Before executing automated tasks, verify the deployment environment meets these 
    ```bash
    uv run tiangong-research sources list
    uv run tiangong-research sources verify <source_id>
+   uv run tiangong-research sources verify all
    uv run tiangong-research sources audit [--json] [--show-blocked] [--no-fail-on-error]
    ```
    - `--json` emits the aggregated report as JSON (useful for CI pipelines).
@@ -226,6 +246,7 @@ When optional dependencies are unavailable:
 5. When visualization features are required, ensure the AntV MCP chart server is running (`npx -y @antv/mcp-server-chart --transport streamable`) and record the endpoint in `.secrets` or `TIANGONG_CHART_MCP_ENDPOINT`.
 6. When extending workflows, reuse helpers from `workflows/simple.py` or add new modules under `workflows/`, keeping corresponding tests up to date.
 7. Instrument new services and workflows with the centralized logging helper and add regression tests when behaviour depends on specific log outputs.
+8. Shared helper scripts live under `scripts/ops/`, `scripts/integrations/`, `scripts/tooling/`, and `scripts/examples/`; keep study-specific scripts inside `.cache/tiangong/<STUDY_ID>/scripts/` as outlined in `WORKSPACES.md`.
 
 ## Verification Checklist
 

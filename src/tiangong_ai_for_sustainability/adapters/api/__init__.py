@@ -8,24 +8,95 @@ Each submodule exposes two layers:
   implementations suitable for registry verification or higher-level orchestration.
 """
 
+from .arxiv import ArxivAdapter, ArxivAPIError, ArxivClient
 from .base import APIError, BaseAPIClient
+from .crossref import CrossrefAdapter, CrossrefClient
+from .dimensions import DimensionsAIAdapter, DimensionsAIClient
+from .esa_copernicus import CopernicusDataspaceAdapter, CopernicusDataspaceClient
+from .esg import (
+    CdpClimateAdapter,
+    IssESGAdapter,
+    LsegESGAdapter,
+    MsciESGAdapter,
+    SpGlobalESGAdapter,
+    SustainalyticsAdapter,
+)
 from .github_topics import GitHubTopicsAdapter, GitHubTopicsClient
+from .ilostat import ILOSTATAdapter, ILOSTATClient
+from .imf import IMFClimateAdapter, IMFClimateClient
+from .ipbes import IPBESAdapter
+from .ipcc import IPCCDDCAdapter
+from .kaggle import KaggleAdapter, KaggleAPIError, KaggleClient
+from .lens import LensOrgAdapter, LensOrgClient
+from .nasa_earthdata import NasaEarthdataAdapter, NasaEarthdataClient
+from .open_supply_hub import OpenSupplyHubAdapter, OpenSupplyHubClient
 from .openalex import OpenAlexAdapter, OpenAlexClient
 from .osdg import OSDGAdapter, OSDGClient
+from .premium_literature import AcmDigitalLibraryAdapter, ScopusAdapter
 from .semantic_scholar import SemanticScholarAdapter, SemanticScholarClient
+from .standards import GhgProtocolWorkbooksAdapter, GriTaxonomyAdapter
+from .transparency import TransparencyCPIAdapter, TransparencyCPIClient
 from .un_sdg import UNSDGAdapter, UNSDGClient
+from .web_of_science import WebOfScienceAdapter, WebOfScienceClient
+from .wikidata import WikidataAdapter, WikidataClient
+from .world_bank import WorldBankAdapter, WorldBankClient
+from .zenodo import ZenodoCommunityClient, extract_record_doi
 
 __all__ = [
+    "ArxivAdapter",
+    "ArxivAPIError",
+    "ArxivClient",
     "APIError",
     "BaseAPIClient",
+    "CrossrefAdapter",
+    "CrossrefClient",
+    "CdpClimateAdapter",
+    "DimensionsAIAdapter",
+    "DimensionsAIClient",
+    "IMFClimateAdapter",
+    "IMFClimateClient",
+    "ILOSTATAdapter",
+    "ILOSTATClient",
+    "IPBESAdapter",
+    "IPCCDDCAdapter",
+    "CopernicusDataspaceAdapter",
+    "CopernicusDataspaceClient",
     "GitHubTopicsAdapter",
     "GitHubTopicsClient",
+    "IssESGAdapter",
+    "LsegESGAdapter",
+    "AcmDigitalLibraryAdapter",
+    "KaggleAdapter",
+    "KaggleAPIError",
+    "KaggleClient",
+    "MsciESGAdapter",
+    "LensOrgAdapter",
+    "LensOrgClient",
+    "NasaEarthdataAdapter",
+    "NasaEarthdataClient",
     "OpenAlexAdapter",
     "OpenAlexClient",
+    "OpenSupplyHubAdapter",
+    "OpenSupplyHubClient",
     "OSDGAdapter",
     "OSDGClient",
+    "SpGlobalESGAdapter",
+    "GriTaxonomyAdapter",
+    "GhgProtocolWorkbooksAdapter",
     "SemanticScholarAdapter",
     "SemanticScholarClient",
+    "TransparencyCPIAdapter",
+    "TransparencyCPIClient",
+    "SustainalyticsAdapter",
+    "ScopusAdapter",
+    "WebOfScienceAdapter",
+    "WebOfScienceClient",
     "UNSDGAdapter",
     "UNSDGClient",
+    "WikidataAdapter",
+    "WikidataClient",
+    "WorldBankAdapter",
+    "WorldBankClient",
+    "ZenodoCommunityClient",
+    "extract_record_doi",
 ]

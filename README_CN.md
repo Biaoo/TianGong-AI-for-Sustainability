@@ -42,7 +42,9 @@
 ```bash
 uv run tiangong-research --help
 uv run tiangong-research sources list
+uv run tiangong-research sources audit
 uv run tiangong-research sources verify un_sdg_api
+uv run tiangong-research sources verify all
 uv run tiangong-research research workflow simple --topic "生命周期评估"
 ```
 
@@ -52,9 +54,31 @@ uv run tiangong-research research workflow simple --topic "生命周期评估"
 
 - 图表：`node --version`、`npx -y @antv/mcp-server-chart --transport streamable --version`
 - PDF 导出：`pandoc --version`、`pdflatex --version`
-- 碳强度：`uv run --group 3rd uk-grid-intensity --help`
+- Earth Engine：`earthengine --help`（通过 `pipx install earthengine-api` 安装并执行 `earthengine authenticate`）
+- 碳强度：`uv run uk-grid-intensity --help`（CLI 随项目依赖安装，如需自定义命令可设置 `GRID_INTENSITY_CLI`）。
 
 缺少某项功能时，重新运行对应的安装脚本（`install_macos.sh`、`install_ubuntu.sh`、`install_windows.ps1`），并选择合适的 `--with-*` 选项即可。
+
+### Web of Science Starter API（可选）
+
+- 同步仓库后执行 `uv sync` 会自动安装 Clarivate 官方的 Web of Science Starter Python SDK（`clarivate-wos-starter-python-client`），无需手动 pip。
+- 将 Clarivate 提供的密钥写入 `.secrets/secrets.toml` 的 `[web_of_science]` 区块（或导出 `TIANGONG_WOS_API_KEY` 环境变量）。
+- 随时通过 `uv run tiangong-research sources verify web_of_science` 检查连通性；若成功，CLI 会返回示例文章标题与 UID，方便确认凭据已生效。
+
+### 使用 PM2 启动 MCP 图表服务器
+
+可以用 `pm2` 将 AntV MCP 图表服务器常驻后台：
+
+```bash
+mkdir -p local_mcp_logs
+pm2 start "npx --no-install -p @antv/mcp-server-chart mcp-server-chart --transport streamable --port 1122 --host 0.0.0.0" \
+  --name mcp-server-chart-remote \
+  --time \
+  --output ./local_mcp_logs/mcp-server-chart-remote-out.log \
+  --error ./local_mcp_logs/mcp-server-chart-remote-error.log
+```
+
+导出 `TIANGONG_CHART_MCP_ENDPOINT=http://127.0.0.1:1122/mcp` 让 CLI 连接到该服务，并通过 `pm2 status`、`pm2 logs mcp-server-chart-remote`、`pm2 stop mcp-server-chart-remote` 等命令管理进程。
 
 ## Codex Docker 工作流
 
@@ -68,10 +92,11 @@ uv run tiangong-research research workflow simple --topic "生命周期评估"
 
 - `uv run tiangong-research sources list` — 查看数据源注册表。
 - `uv run tiangong-research sources verify <id>` — 检查指定数据源的连通性与配置。
+- `uv run tiangong-research sources verify all` — 自动遍历所有数据源并汇总通过/失败情况。
 - `uv run tiangong-research research find-code "<主题>" --limit 5 --json` — 搜索可持续性相关开源仓库。
 - `uv run tiangong-research research map-sdg <文件>` — 调用 OSDG API 将文本映射到 SDG 目标（需配置可用的 OSDG 端点）。
 - `uv run tiangong-research research find-papers "<关键词>" --openalex --arxiv --scopus --citation-graph --limit 10 --json` — 聚合 Semantic Scholar 与可选的 OpenAlex、本地 arXiv、Scopus 数据。
-- `uv run --group 3rd tiangong-research research get-carbon-intensity <地区>` — 获取碳强度指标（如使用自定义 CLI，可设置 `GRID_INTENSITY_CLI` 环境变量）。
+- `uv run tiangong-research research get-carbon-intensity <地区>` — 获取碳强度指标（CLI 随项目依赖提供；如需自定义命令，可设置 `GRID_INTENSITY_CLI` 环境变量）。
 - `uv run tiangong-research research synthesize "<问题>" --output reports/synthesis.md` — 先收集 SDG、代码、文献与碳强度，再由 LLM 生成综合分析。 
 - `uv run tiangong-research research visuals verify` — 确认 AntV MCP 图表服务器可达。
 
@@ -87,6 +112,17 @@ uv run tiangong-research research workflow simple --topic "生命周期评估"
   uv run tiangong-research --prompt-template default --prompt-variable topic="城市气候韧性" research workflow deep-report --profile lca --years 3
   ```
 - 若仅需一次性覆盖，可继续使用 `--deep-prompt` 与 `--deep-instructions`；当未提供指令时，CLI 会自动回退至模版机制。
+
+## 内联提示组合器
+
+- 生成引用分阶段工作流规范的 Markdown 研究提示：`uv run python scripts/tooling/compose_inline_prompt.py`
+- 需要单行提示时追加 `--emit-inline`（默认仅生成 Markdown）。
+- 自定义输入参数：
+  - `--user-prompt path/to/file.md` 指定其他研究简报。
+  - `--spec path/to/workflow.md`（`--template` 为别名）选择不同的工作流规范。
+  - `--markdown-output path/to/prompt.md` 覆盖 Markdown 输出路径；配合 `--inline-output` 指定单行提示文件。
+- 未加参数时脚本会把 Markdown 提示写入 `user_prompts/_markdown_prompt.md`，并在标准输出回显同样的内容。只有显式请求时才会生成 `_inline_prompt.txt`。
+- 该 Markdown 提示引用规范文档而非逐字拷贝全文，请在发送前补充 “Study-Specific Notes” 与 “Workspace Notes” 中的研究细节。
 
 ## 需要更专业的控制？
 
@@ -104,3 +140,24 @@ uv run tiangong-research research workflow simple --topic "生命周期评估"
 - 提示模板 — `specs/prompts/default.md`（AI 使用） / `specs/prompts/default_CN.md`（人工参考）
 
 可选组件缺失时，工作流会自动降级（例如无图表时输出纯文本）。如需访问受限数据源，请将所需密钥配置在环境变量或 `.secrets/secrets.toml` 文件中。
+
+## Prompt Generation
+
+- 生成引用分阶段工作流规范的 Markdown 研究提示：`uv run python scripts/tooling/compose_inline_prompt.py`
+- 需要单行提示时追加 `--emit-inline`（默认仅生成 Markdown）。
+- 自定义输入参数：
+  - `--user-prompt path/to/file.md` 指定其他研究简报。
+  - `--spec path/to/workflow.md`（`--template` 为别名）选择不同的工作流规范。
+  - `--markdown-output path/to/prompt.md` 覆盖 Markdown 输出路径；配合 `--inline-output` 指定单行提示文件。
+- 未加参数时脚本会把 Markdown 提示写入 `user_prompts/_markdown_prompt.md`，并在标准输出回显同样的内容。只有显式请求时才会生成 `_inline_prompt.txt`。
+- 该 Markdown 提示引用规范文档而非逐字拷贝全文，请在发送前补充 “Study-Specific Notes” 与 “Workspace Notes” 中的研究细节。
+
+```bash
+uv run python scripts/tooling/compose_inline_prompt.py --user-prompt user_prompts/example.md
+``` 
+
+## Codex
+```bash
+# 危险操作：直接执行转换后的内联prompt（请确保已了解风险）
+codex exec --dangerously-bypass-approvals-and-sandbox "$(cat user_prompts/_inline_prompt.txt)"
+```

@@ -42,7 +42,9 @@ Use `uv run` for every CLI command so you stay inside the managed environment:
 ```bash
 uv run tiangong-research --help
 uv run tiangong-research sources list
+uv run tiangong-research sources audit
 uv run tiangong-research sources verify un_sdg_api
+uv run tiangong-research sources verify all
 uv run tiangong-research research workflow simple --topic "life cycle assessment"
 ```
 
@@ -52,9 +54,31 @@ If you enabled charts, start the AntV MCP chart server before running workflows 
 
 - Charts: `node --version` and `npx -y @antv/mcp-server-chart --transport streamable --version`
 - PDF export: `pandoc --version` and `pdflatex --version`
-- Carbon metrics: `uv run --group 3rd uk-grid-intensity --help`
+- Earth Engine: `earthengine --help` (install via `pipx install earthengine-api` and run `earthengine authenticate`)
+- Carbon metrics: `uv run uk-grid-intensity --help` (CLI ships with the project; set `GRID_INTENSITY_CLI` to override the executable).
 
 Missing a feature? Just re-run your installer (`install_macos.sh`, `install_ubuntu.sh`, or `install_windows.ps1`) with the matching `--with-*` flag.
+
+### Web of Science Starter API (Optional)
+
+- `uv sync` pulls the Clarivate Web of Science Starter Python client (`clarivate-wos-starter-python-client`) so the CLI can talk to the premium API.
+- Add your Clarivate key under `[web_of_science]` in `.secrets/secrets.toml` (or export `TIANGONG_WOS_API_KEY`).
+- Verify connectivity any time with `uv run tiangong-research sources verify web_of_science`; a passing check echoes a sample title/UID so you know credentials are working.
+
+### Start the MCP Chart Server with PM2
+
+Keep the AntV MCP chart server running in the background with `pm2`:
+
+```bash
+mkdir -p local_mcp_logs
+pm2 start "npx --no-install -p @antv/mcp-server-chart mcp-server-chart --transport streamable --port 1122 --host 0.0.0.0" \
+  --name mcp-server-chart-remote \
+  --time \
+  --output ./local_mcp_logs/mcp-server-chart-remote-out.log \
+  --error ./local_mcp_logs/mcp-server-chart-remote-error.log
+```
+
+Export `TIANGONG_CHART_MCP_ENDPOINT=http://127.0.0.1:1122/mcp` so the CLI can find the service. Use `pm2 status`, `pm2 logs mcp-server-chart-remote`, and `pm2 stop mcp-server-chart-remote` to manage the process.
 
 ## Codex Docker Workflow
 
@@ -68,10 +92,11 @@ Missing a feature? Just re-run your installer (`install_macos.sh`, `install_ubun
 
 - `uv run tiangong-research sources list` — browse the registered data sources.
 - `uv run tiangong-research sources verify <id>` — confirm credentials/connectivity.
+- `uv run tiangong-research sources verify all` — iterate every registered source and summarise pass/fail.
 - `uv run tiangong-research research find-code "<topic>" --limit 5 --json` — discover sustainability repositories.
 - `uv run tiangong-research research map-sdg <file>` — align a document with SDG goals (requires OSDG access).
 - `uv run tiangong-research research find-papers "<keywords>" --openalex --arxiv --scopus --citation-graph --limit 10 --json` — aggregate Semantic Scholar plus optional OpenAlex/arXiv/Scopus enrichment.
-- `uv run --group 3rd tiangong-research research get-carbon-intensity <location>` — fetch grid intensity metrics (set the `GRID_INTENSITY_CLI` env var if you use a non-default executable).
+- `uv run tiangong-research research get-carbon-intensity <location>` — fetch grid intensity metrics (CLI ships with the project; set the `GRID_INTENSITY_CLI` env var if you use a non-default executable).
 - `uv run tiangong-research research synthesize "<question>" --output reports/synthesis.md` — orchestrate SDG, code, literature, carbon checks, then compile an LLM-guided summary.
 - `uv run tiangong-research research visuals verify` — make sure the AntV MCP chart server is reachable.
 
@@ -87,6 +112,21 @@ Missing a feature? Just re-run your installer (`install_macos.sh`, `install_ubun
   uv run tiangong-research --prompt-template default --prompt-variable topic="urban climate resilience" research workflow deep-report --profile lca --years 3
   ```
 - `--deep-prompt` and `--deep-instructions` remain available for one-off overrides; templates apply only when instructions are omitted.
+
+## Inline Prompt Composer
+
+- Generate the Markdown research brief that references the staged workflow instructions: `uv run python scripts/tooling/compose_inline_prompt.py`
+- Pass `--emit-inline` to also save the single-line prompt (defaults to Markdown output only).
+- Override inputs when necessary:
+  - `--user-prompt path/to/file.md` selects an alternate study brief.
+  - `--spec path/to/workflow.md` (alias `--template`) points at a different staged workflow spec.
+  - `--markdown-output path/to/prompt.md` rewrites the Markdown destination; pair with `--inline-output` when emitting the inline string.
+- Without flags the script writes the Markdown prompt to `user_prompts/_markdown_prompt.md` and prints the same content to stdout. Inline output is created only when requested.
+- The Markdown prompt cites the canonical specs instead of inlining them. Fill the “Study-Specific Notes” and “Workspace Notes” blocks before handing the prompt to Codex.
+
+```bash
+uv run python scripts/tooling/compose_inline_prompt.py --user-prompt user_prompts/example.md
+``` 
 
 ## Need Advanced Control?
 
@@ -104,3 +144,9 @@ Everyone else can simply rely on the platform installers—`install_macos.sh`, `
 - Prompt template — `specs/prompts/default.md` (AI) / `specs/prompts/default_CN.md` (human reference)
 
 Optional components degrade gracefully (for example, workflows fall back to text when charts are unavailable). Keep any required API keys in environment variables or `.secrets/secrets.toml` so the CLI can access protected sources.
+
+## Codex
+```bash
+# Dangerous: bypass approvals and sandboxing for quick tests
+codex exec --dangerously-bypass-approvals-and-sandbox "$(cat user_prompts/_inline_prompt.txt)"
+```

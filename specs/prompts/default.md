@@ -3,7 +3,10 @@
 This template is the only prompt file that should be delivered to Codex. It provides the full study briefing scaffold, stage plan, and CLI quick reference in English so executions stay deterministic. A Chinese translation for human operators is available at `specs/prompts/default_CN.md`; do **not** feed that file to the AI.
 
 ## How to Use
-- Copy the Markdown skeleton below and replace every placeholder (`<...>`) with concrete details about your study.
+- Initialise (or reuse) a study workspace before drafting the prompt: `uv run python scripts/ops/init_study_workspace.py --study-id <STUDY_ID>`. This provisions `.cache/tiangong/<STUDY_ID>/` along with editable `docs/runbook.md` and `docs/study_brief.md`. For workspace operating rules see `WORKSPACES.md` / `WORKSPACES_CN.md`.
+- Update the generated runbook/blueprint files with the study-specific command queue, cache locations, and whether Codex should continue automatically after blueprint confirmation (`auto_execute: true|false`).
+- Copy the Markdown skeleton below and replace every placeholder (`<...>`) with concrete details about your study, referencing the prepared runbook where helpful.
+- Save customised prompts and intermediate planning artefacts inside the study workspace (for example `.cache/tiangong/<STUDY_ID>/docs/`). Treat `user_prompts/_markdown_prompt.md` and `_inline_prompt.txt` as immutable templates; do **not** overwrite them with study-specific content.
 - Check environment readiness (data-source credentials, AntV chart server, `grid-intensity`, cache paths) before sending the prompt.
 - List the CLI commands in the order they must run. Codex should remain on the `uv run tiangong-research ...` interface unless you explicitly authorise a deterministic Python fallback.
 - Store raw outputs under `.cache/tiangong/<STUDY_ID>/` (or another declared path) for reproducibility.
@@ -11,6 +14,12 @@ This template is the only prompt file that should be delivered to Codex. It prov
 ## Prompt Skeleton (Copy & Edit)
 ```markdown
 # TianGong Research Plan - Default Template
+
+## 0. Workspace Bootstrap (pre-prompt)
+- Study ID: `<STUDY_ID>`
+- Workspace init command: `uv run python scripts/ops/init_study_workspace.py --study-id <STUDY_ID>` *(skip if already provisioned)*
+- Blueprint sources: `.cache/tiangong/<STUDY_ID>/docs/runbook.md`, `.cache/tiangong/<STUDY_ID>/docs/study_brief.md`
+- Auto execute after blueprint confirmation: `<true|false>` *(Codex proceeds immediately when true; otherwise pause for human sign-off)*
 
 ## 1. Environment & Readiness
 - [ ] Run `uv run tiangong-research sources list` and confirm availability.
@@ -29,6 +38,7 @@ This template is the only prompt file that should be delivered to Codex. It prov
 ### Stage 0 - Spec Alignment
 - Purpose: confirm alignment with `AGENTS.md` and `tasks/blueprint.yaml`.
 - CLI commands: `uv run tiangong-research sources list`, `uv run tiangong-research sources verify <id>`
+- Auto-execution guard: confirm `<true|false>` setting from workspace blueprint and state whether Codex should continue without further confirmation.
 - Outputs: readiness notes, blocked sources, escalation items.
 
 ### Stage 1 - Deterministic Acquisition
@@ -37,7 +47,7 @@ This template is the only prompt file that should be delivered to Codex. It prov
   - `uv run tiangong-research research map-sdg <PATH_OR_TEXT>`
   - `uv run tiangong-research research find-code "<KEYWORDS>"`
   - `uv run tiangong-research research find-papers "<QUERY>"`
-  - `uv run --group 3rd tiangong-research research get-carbon-intensity <GRID_ID>`
+  - `uv run tiangong-research research get-carbon-intensity <GRID_ID>` *(CLI ships with the project; verify via `uv run uk-grid-intensity --help` and set `GRID_INTENSITY_CLI` if you override the executable)*
   - `uv run tiangong-research research query-kg --query <PATH_OR_QUERY>` *(when available)*
 - Outputs: store JSON/Markdown under `.cache/tiangong/<STUDY_ID>/acquisition`.
 
@@ -109,7 +119,7 @@ This template is the only prompt file that should be delivered to Codex. It prov
 | `uv run tiangong-research research map-sdg <PATH_OR_TEXT>` | Map narratives to SDG taxonomy. | `--json`, optional `--prompt-language en`, `--prompt-variable key=value` |
 | `uv run tiangong-research research find-code "<KEYWORDS>"` | Discover implementation references. | `--limit <N>`, `--json`, `--topics-cache <PATH>` |
 | `uv run tiangong-research research find-papers "<QUERY>"` | Aggregate scholarly literature. | `--limit <N>`, `--openalex/--no-openalex`, `--citation-graph`, `--arxiv` |
-| `uv run --group 3rd tiangong-research research get-carbon-intensity <GRID_ID>` | Fetch carbon-intensity data. | `--json`, `--as-of <TIMESTAMP>`, `--timezone <TZ>` |
+| `uv run tiangong-research research get-carbon-intensity <GRID_ID>` | Fetch carbon-intensity data (bundled CLI; override with `GRID_INTENSITY_CLI` if needed). | `--json`, `--as-of <TIMESTAMP>`, `--timezone <TZ>`, verify with `uv run uk-grid-intensity --help`. |
 | `uv run tiangong-research research query-kg --query <PATH_OR_QUERY>` | Planned SPARQL/MCP query. | `--json`, custom headers when available. |
 | `uv run tiangong-research research synthesize "<QUESTION>"` | Generate evidence-backed synthesis. | `--prompt-template default`, optional `--prompt-language en`, repeatable `-P key=value`, `--deep-research`. |
 | `uv run tiangong-research research visuals verify` | Check AntV MCP chart readiness. | Pair with `npx -y @antv/mcp-server-chart --transport streamable --version` for diagnostics. |
