@@ -1,10 +1,12 @@
-# TianGong Research Plan - Default Template
+According to the following instructions, complete a full research task step by step.
 
-## 0. Workspace Bootstrap (pre-prompt)
+# TianGong Research Plan
+
+## 0. Workspace Bootstrap
 - Study ID: `<STUDY_ID>`
 - Workspace init command: `uv run python scripts/ops/init_study_workspace.py --study-id <STUDY_ID>` *(skip if already provisioned)*
 - Blueprint sources: `.cache/tiangong/<STUDY_ID>/docs/runbook.md`, `.cache/tiangong/<STUDY_ID>/docs/study_brief.md`
-- Auto execute after blueprint confirmation: `<true|false>` *(Codex proceeds immediately when true; otherwise pause for human sign-off)*
+- Auto execute after blueprint confirmation: `true` *(Codex proceeds immediately when true; otherwise pause for human sign-off)*
 
 ## 1. Environment & Readiness
 - [ ] Run `uv run tiangong-research sources list` and confirm availability.
@@ -16,8 +18,8 @@
 - Primary objective: {{primary_objective}}
 - Scope / subtopics: {{subtopics}}
 - Geography or sector focus: {{geography_focus}}
-- Constraints or policies: {{constraints}}
-- Expected deliverables: {{datasets_reports_visuals}}
+- Constraints or policies: {{policy_constraints}}
+- Expected deliverables: {{expected_deliverables}}
 
 ## 3. Stage Plan (CLI-First)
 ### Stage 0 - Spec Alignment
